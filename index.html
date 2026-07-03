@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="APS Truck GPS" />
+  <title>APS Truck GPS</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="assets/icon.svg" />
+  <link rel="apple-touch-icon" href="assets/icon-192.png" />
+  <link rel="preconnect" href="https://{s}.tile.openstreetmap.org" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div class="brand-row">
+        <div class="app-logo" aria-hidden="true">APS</div>
+        <div>
+          <h1>Truck GPS</h1>
+          <p id="routeStatus">Ready for route planning</p>
+        </div>
+      </div>
+      <div class="status-row" aria-live="polite">
+        <span id="gpsPill" class="pill neutral">GPS waiting</span>
+        <span id="netPill" class="pill neutral">Checking network</span>
+        <span id="dataPill" class="pill warn">Demo data</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="screen active" id="screen-drive" aria-labelledby="tab-drive">
+        <div class="map-wrap">
+          <div id="map" class="map" role="application" aria-label="Map view"></div>
+          <div id="offlineMap" class="offline-map" hidden>
+            <div class="offline-map-card">
+              <strong>Offline map fallback</strong>
+              <span>Map tiles are not loaded. Route and bridge checks still work using saved coordinates.</span>
+            </div>
+          </div>
+          <div class="floating-panel compact">
+            <button id="locateBtn" class="primary small">Use my location</button>
+            <button id="recheckBtn" class="ghost small">Recheck safety</button>
+          </div>
+        </div>
+
+        <div class="sheet">
+          <div class="route-summary" id="summaryCard">
+            <div>
+              <span class="label">Route status</span>
+              <strong id="summaryTitle">No route planned</strong>
+              <p id="summaryText">Enter a destination or tap a saved route.</p>
+            </div>
+            <div class="risk-badge" id="riskBadge">—</div>
+          </div>
+          <div id="warningsList" class="warnings-list"></div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-plan" aria-labelledby="tab-plan">
+        <div class="panel">
+          <h2>Plan route</h2>
+          <label>Start</label>
+          <div class="row-stack">
+            <input id="startInput" autocomplete="street-address" placeholder="Current GPS or type suburb/address" />
+            <button id="useCurrentStartBtn" class="ghost">Current</button>
+          </div>
+          <label>Destination</label>
+          <input id="destInput" autocomplete="street-address" placeholder="Address, suburb, depot, customer" />
+          <div class="grid2">
+            <button id="planRouteBtn" class="primary">Plan route</button>
+            <button id="clearRouteBtn" class="ghost danger">Clear</button>
+          </div>
+          <p class="hint">This first build uses normal road routing or a direct fallback line. Truck-safe routing needs official/licensed route data in the next stage.</p>
+        </div>
+
+        <div class="panel">
+          <h2>Saved depots / places</h2>
+          <div class="row-stack">
+            <input id="placeNameInput" placeholder="Name e.g. Melbourne depot" />
+            <input id="placeAddressInput" placeholder="Address or coordinates" />
+          </div>
+          <button id="savePlaceBtn" class="secondary">Save place</button>
+          <div id="placesList" class="list"></div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-safety" aria-labelledby="tab-safety">
+        <div class="panel safety-panel">
+          <h2>Truck profile & safety</h2>
+          <div class="grid2">
+            <label>Vehicle type
+              <select id="vehicleType">
+                <option>B-double</option>
+                <option>Semi trailer</option>
+                <option>Rigid truck</option>
+                <option>Road train</option>
+                <option>PBS</option>
+                <option>HML</option>
+                <option>Oversize / overmass</option>
+              </select>
+            </label>
+            <label>Truck height (m)
+              <input id="truckHeight" inputmode="decimal" type="number" min="0" step="0.01" />
+            </label>
+            <label>Safety margin (m)
+              <input id="heightMargin" inputmode="decimal" type="number" min="0" step="0.01" />
+            </label>
+            <label>Truck width (m)
+              <input id="truckWidth" inputmode="decimal" type="number" min="0" step="0.01" />
+            </label>
+            <label>Truck length (m)
+              <input id="truckLength" inputmode="decimal" type="number" min="0" step="0.1" />
+            </label>
+            <label>GCM / weight (t)
+              <input id="truckWeight" inputmode="decimal" type="number" min="0" step="0.1" />
+            </label>
+          </div>
+          <label class="check-row">
+            <input id="avoidUnknown" type="checkbox" />
+            Avoid / warn for unknown bridge heights
+          </label>
+          <button id="saveProfileBtn" class="primary">Save profile</button>
+          <div class="notice red">
+            The app must never treat unknown data as safe. Always obey road signs, permits, NHVR/state maps, and bridge height signs.
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Add low bridge / restriction</h2>
+          <div class="grid2">
+            <input id="bridgeName" placeholder="Bridge / underpass name" />
+            <input id="bridgeHeight" inputmode="decimal" type="number" min="0" step="0.01" placeholder="Clearance m" />
+            <input id="bridgeLat" inputmode="decimal" type="number" step="0.000001" placeholder="Latitude" />
+            <input id="bridgeLng" inputmode="decimal" type="number" step="0.000001" placeholder="Longitude" />
+          </div>
+          <textarea id="bridgeNote" rows="2" placeholder="Notes e.g. sign says 4.3m, narrow left lane"></textarea>
+          <button id="addBridgeBtn" class="secondary">Add warning point</button>
+          <div id="bridgeList" class="list"></div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-offline" aria-labelledby="tab-offline">
+        <div class="panel">
+          <h2>Offline maps & truck routes</h2>
+          <p class="hint">This screen is ready for state packs. In this starter build it stores the safety database and saved route coordinates for offline checking.</p>
+          <div class="download-grid">
+            <button data-pack="current" class="packBtn secondary">Download current route</button>
+            <button data-pack="VIC" class="packBtn secondary">VIC</button>
+            <button data-pack="NSW" class="packBtn secondary">NSW</button>
+            <button data-pack="QLD" class="packBtn secondary">QLD</button>
+            <button data-pack="SA" class="packBtn secondary">SA</button>
+            <button data-pack="WA" class="packBtn secondary">WA</button>
+            <button data-pack="NT" class="packBtn secondary">NT</button>
+            <button data-pack="TAS" class="packBtn secondary">TAS</button>
+            <button data-pack="ALL" class="packBtn primary">All Australia</button>
+          </div>
+          <div class="notice amber">Full Australia offline truck GPS can be several GB in a production app. This PWA stores lightweight safety/route packs now and is structured for bigger native packs later.</div>
+          <div id="offlinePacks" class="list"></div>
+          <button id="deleteOfflineBtn" class="ghost danger">Delete offline packs</button>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-saved" aria-labelledby="tab-saved">
+        <div class="panel">
+          <h2>Saved routes</h2>
+          <div class="grid2">
+            <input id="routeNameInput" placeholder="Route name e.g. Melbourne to Sydney" />
+            <button id="saveRouteBtn" class="primary">Save current route</button>
+          </div>
+          <div id="savedRoutesList" class="list"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Backup</h2>
+          <div class="grid2">
+            <button id="exportBtn" class="secondary">Export backup</button>
+            <label class="file-btn secondary">Import backup<input id="importFile" type="file" accept="application/json" hidden /></label>
+          </div>
+          <p class="hint">Backup includes truck profile, saved routes, places, custom bridge warnings, and offline pack records.</p>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-settings" aria-labelledby="tab-settings">
+        <div class="panel">
+          <h2>App settings</h2>
+          <label>Map/routing mode</label>
+          <select id="routingMode">
+            <option value="safe">Conservative safety mode</option>
+            <option value="normal">Normal route planning</option>
+          </select>
+          <label>Data source warning level</label>
+          <select id="warningLevel">
+            <option value="strict">Strict: unknown = warning</option>
+            <option value="balanced">Balanced</option>
+          </select>
+          <label class="check-row"><input id="autoRecheck" type="checkbox" /> Auto recheck safety when route/profile changes</label>
+          <button id="saveSettingsBtn" class="primary">Save settings</button>
+        </div>
+        <div class="panel">
+          <h2>About</h2>
+          <p>APS Truck GPS is a personal route-assistance PWA. It is not an NHVR-approved route authority and not a replacement for bridge signs, permits, state road maps, or professional truck routing data.</p>
+          <p id="buildInfo" class="hint"></p>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-tabs" aria-label="Main navigation">
+      <button id="tab-drive" class="tab active" data-screen="drive">Drive</button>
+      <button id="tab-plan" class="tab" data-screen="plan">Plan</button>
+      <button id="tab-safety" class="tab" data-screen="safety">Safety</button>
+      <button id="tab-offline" class="tab" data-screen="offline">Offline</button>
+      <button id="tab-saved" class="tab" data-screen="saved">Saved</button>
+      <button id="tab-settings" class="tab" data-screen="settings">Settings</button>
+    </nav>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script defer src="app.js"></script>
+</body>
+</html>
