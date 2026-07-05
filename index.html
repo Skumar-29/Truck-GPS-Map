@@ -3,93 +3,122 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#0b1220" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="APS Truck GPS" />
-  <title>APS Truck GPS</title>
+  <title>APS Truck GPS Navigation</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="assets/icon.svg" />
   <link rel="apple-touch-icon" href="assets/icon-192.png" />
-  <link rel="preconnect" href="https://{s}.tile.openstreetmap.org" />
-  <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="app" class="app-shell">
     <header class="topbar">
       <div class="brand-row">
-        <div class="app-logo" aria-hidden="true">APS</div>
-        <div>
+        <div class="app-logo">APS</div>
+        <div class="brand-copy">
           <h1>Truck GPS</h1>
-          <p id="routeStatus">Ready for route planning</p>
+          <p id="routeStatus">Ready for live navigation</p>
         </div>
+        <button id="installBtn" class="install-btn" hidden>Install</button>
       </div>
       <div class="status-row" aria-live="polite">
         <span id="gpsPill" class="pill neutral">GPS waiting</span>
+        <span id="navPill" class="pill neutral">Navigation off</span>
         <span id="netPill" class="pill neutral">Checking network</span>
-        <span id="dataPill" class="pill warn">Demo data</span>
+        <span id="dataPill" class="pill bad">No certified truck data</span>
       </div>
     </header>
 
     <main>
-      <section class="screen active" id="screen-drive" aria-labelledby="tab-drive">
+      <section id="screen-drive" class="screen active" aria-labelledby="tab-drive">
         <div class="map-wrap">
-          <div id="map" class="map" role="application" aria-label="Map view"></div>
-          <div id="offlineMap" class="offline-map" hidden>
-            <div class="offline-map-card">
-              <strong>Offline map fallback</strong>
-              <span>Map tiles are not loaded. Route and bridge checks still work using saved coordinates.</span>
+          <div id="map" class="map" role="application" aria-label="Live map navigation"></div>
+
+          <div id="navigationHud" class="navigation-hud" hidden>
+            <div class="hud-top">
+              <div class="maneuver-icon" id="maneuverIcon">▶</div>
+              <div class="hud-copy">
+                <strong id="nextInstruction">Start navigation</strong>
+                <span id="nextDistance">GPS will update your progress</span>
+              </div>
+            </div>
+            <div class="hud-bottom">
+              <span id="etaText">ETA —</span>
+              <span id="remainingText">— km left</span>
+              <span id="arrivalText">Arrive —</span>
             </div>
           </div>
-          <div class="floating-panel compact">
-            <button id="locateBtn" class="primary small">Use my location</button>
-            <button id="recheckBtn" class="ghost small">Recheck safety</button>
+
+          <div class="map-controls top-left">
+            <button id="locateBtn" class="map-btn">📍 GPS</button>
+            <button id="followBtn" class="map-btn active">🎯 Follow</button>
+          </div>
+          <div class="map-controls top-right">
+            <button id="layersBtn" class="map-btn">🗺️ View</button>
+            <button id="voiceBtn" class="map-btn active">🔊 Voice</button>
+          </div>
+          <div class="map-controls bottom-left">
+            <button id="startNavBtn" class="map-btn primary">Start navigation</button>
+            <button id="stopNavBtn" class="map-btn danger" hidden>Stop</button>
           </div>
         </div>
 
-        <div class="sheet">
+        <div class="sheet drive-sheet">
           <div class="route-summary" id="summaryCard">
             <div>
-              <span class="label">Route status</span>
+              <span class="label">Navigation status</span>
               <strong id="summaryTitle">No route planned</strong>
-              <p id="summaryText">Enter a destination or tap a saved route.</p>
+              <p id="summaryText">Search a destination, then start navigation.</p>
             </div>
-            <div class="risk-badge" id="riskBadge">—</div>
+            <div id="riskBadge" class="risk-badge">—</div>
           </div>
+          <div id="safetyStrip" class="safety-strip amber">Normal map routing only. Use road signs, permits, NHVR/state maps and professional truck routing data for final decisions.</div>
           <div id="warningsList" class="warnings-list"></div>
         </div>
       </section>
 
-      <section class="screen" id="screen-plan" aria-labelledby="tab-plan">
+      <section id="screen-plan" class="screen" aria-labelledby="tab-plan">
         <div class="panel">
           <h2>Plan route</h2>
           <label>Start</label>
           <div class="row-stack">
-            <input id="startInput" autocomplete="street-address" placeholder="Current GPS or type suburb/address" />
+            <input id="startInput" autocomplete="street-address" placeholder="Current GPS or type address/suburb" />
             <button id="useCurrentStartBtn" class="ghost">Current</button>
           </div>
           <label>Destination</label>
           <input id="destInput" autocomplete="street-address" placeholder="Address, suburb, depot, customer" />
-          <div class="grid2">
+          <div class="grid2 actions-row">
             <button id="planRouteBtn" class="primary">Plan route</button>
-            <button id="clearRouteBtn" class="ghost danger">Clear</button>
+            <button id="clearRouteBtn" class="ghost danger">Clear route</button>
           </div>
-          <p class="hint">This first build uses normal road routing or a direct fallback line. Truck-safe routing needs official/licensed route data in the next stage.</p>
+          <div class="notice amber">This version behaves more like a live navigation app, but the built-in route engine is normal road routing. True Garmin/Sygic-style truck-safe navigation needs licensed truck map/routing data.</div>
         </div>
 
         <div class="panel">
-          <h2>Saved depots / places</h2>
-          <div class="row-stack">
-            <input id="placeNameInput" placeholder="Name e.g. Melbourne depot" />
-            <input id="placeAddressInput" placeholder="Address or coordinates" />
+          <h2>Route details</h2>
+          <div class="stats-grid">
+            <div><span>Distance</span><strong id="distanceStat">—</strong></div>
+            <div><span>ETA</span><strong id="durationStat">—</strong></div>
+            <div><span>Route type</span><strong id="routeTypeStat">—</strong></div>
+            <div><span>Safety</span><strong id="safetyStat">—</strong></div>
           </div>
-          <button id="savePlaceBtn" class="secondary">Save place</button>
-          <div id="placesList" class="list"></div>
+          <div class="external-nav-grid">
+            <button id="openAppleMapsBtn" class="secondary">Open Apple Maps</button>
+            <button id="openGoogleMapsBtn" class="secondary">Open Google Maps</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Turn-by-turn directions</h2>
+          <div id="directionsList" class="directions-list empty">No route yet.</div>
         </div>
       </section>
 
-      <section class="screen" id="screen-safety" aria-labelledby="tab-safety">
+      <section id="screen-safety" class="screen" aria-labelledby="tab-safety">
         <div class="panel safety-panel">
           <h2>Truck profile & safety</h2>
           <div class="grid2">
@@ -107,7 +136,7 @@
             <label>Truck height (m)
               <input id="truckHeight" inputmode="decimal" type="number" min="0" step="0.01" />
             </label>
-            <label>Safety margin (m)
+            <label>Safety clearance margin (m)
               <input id="heightMargin" inputmode="decimal" type="number" min="0" step="0.01" />
             </label>
             <label>Truck width (m)
@@ -120,14 +149,10 @@
               <input id="truckWeight" inputmode="decimal" type="number" min="0" step="0.1" />
             </label>
           </div>
-          <label class="check-row">
-            <input id="avoidUnknown" type="checkbox" />
-            Avoid / warn for unknown bridge heights
-          </label>
+          <label class="check-row"><input id="avoidUnknown" type="checkbox" /> Warn for unknown bridge heights</label>
+          <label class="check-row"><input id="blockLowBridge" type="checkbox" /> Block navigation if low bridge is detected</label>
           <button id="saveProfileBtn" class="primary">Save profile</button>
-          <div class="notice red">
-            The app must never treat unknown data as safe. Always obey road signs, permits, NHVR/state maps, and bridge height signs.
-          </div>
+          <div class="notice red">Low-bridge data must be treated as safety critical. Unknown clearance is not safe. Always obey physical signs and official route restrictions.</div>
         </div>
 
         <div class="panel">
@@ -139,17 +164,20 @@
             <input id="bridgeLng" inputmode="decimal" type="number" step="0.000001" placeholder="Longitude" />
           </div>
           <textarea id="bridgeNote" rows="2" placeholder="Notes e.g. sign says 4.3m, narrow left lane"></textarea>
-          <button id="addBridgeBtn" class="secondary">Add warning point</button>
+          <div class="grid2 actions-row">
+            <button id="useGpsForBridgeBtn" class="ghost">Use current GPS point</button>
+            <button id="addBridgeBtn" class="secondary">Add warning point</button>
+          </div>
           <div id="bridgeList" class="list"></div>
         </div>
       </section>
 
-      <section class="screen" id="screen-offline" aria-labelledby="tab-offline">
+      <section id="screen-offline" class="screen" aria-labelledby="tab-offline">
         <div class="panel">
           <h2>Offline maps & truck routes</h2>
-          <p class="hint">This screen is ready for state packs. In this starter build it stores the safety database and saved route coordinates for offline checking.</p>
+          <p class="hint">This PWA can cache the app shell and your saved safety/route data. Real full-Australia offline navigation packs need a larger native/Capacitor build or a licensed map package.</p>
           <div class="download-grid">
-            <button data-pack="current" class="packBtn secondary">Download current route</button>
+            <button data-pack="current" class="packBtn secondary">Current route</button>
             <button data-pack="VIC" class="packBtn secondary">VIC</button>
             <button data-pack="NSW" class="packBtn secondary">NSW</button>
             <button data-pack="QLD" class="packBtn secondary">QLD</button>
@@ -157,15 +185,14 @@
             <button data-pack="WA" class="packBtn secondary">WA</button>
             <button data-pack="NT" class="packBtn secondary">NT</button>
             <button data-pack="TAS" class="packBtn secondary">TAS</button>
-            <button data-pack="ALL" class="packBtn primary">All Australia</button>
+            <button data-pack="ALL" class="packBtn primary">All Australia record</button>
           </div>
-          <div class="notice amber">Full Australia offline truck GPS can be several GB in a production app. This PWA stores lightweight safety/route packs now and is structured for bigger native packs later.</div>
           <div id="offlinePacks" class="list"></div>
-          <button id="deleteOfflineBtn" class="ghost danger">Delete offline packs</button>
+          <button id="deleteOfflineBtn" class="ghost danger">Delete offline records</button>
         </div>
       </section>
 
-      <section class="screen" id="screen-saved" aria-labelledby="tab-saved">
+      <section id="screen-saved" class="screen" aria-labelledby="tab-saved">
         <div class="panel">
           <h2>Saved routes</h2>
           <div class="grid2">
@@ -176,34 +203,48 @@
         </div>
 
         <div class="panel">
+          <h2>Saved places</h2>
+          <div class="row-stack place-row">
+            <input id="placeNameInput" placeholder="Name e.g. Melbourne depot" />
+            <input id="placeAddressInput" placeholder="Address or coordinates" />
+          </div>
+          <button id="savePlaceBtn" class="secondary">Save place</button>
+          <div id="placesList" class="list"></div>
+        </div>
+
+        <div class="panel">
           <h2>Backup</h2>
           <div class="grid2">
             <button id="exportBtn" class="secondary">Export backup</button>
             <label class="file-btn secondary">Import backup<input id="importFile" type="file" accept="application/json" hidden /></label>
           </div>
-          <p class="hint">Backup includes truck profile, saved routes, places, custom bridge warnings, and offline pack records.</p>
         </div>
       </section>
 
-      <section class="screen" id="screen-settings" aria-labelledby="tab-settings">
+      <section id="screen-settings" class="screen" aria-labelledby="tab-settings">
         <div class="panel">
-          <h2>App settings</h2>
-          <label>Map/routing mode</label>
-          <select id="routingMode">
-            <option value="safe">Conservative safety mode</option>
-            <option value="normal">Normal route planning</option>
+          <h2>Navigation settings</h2>
+          <label class="check-row"><input id="autoStartGps" type="checkbox" /> Start GPS automatically when app opens</label>
+          <label class="check-row"><input id="autoReroute" type="checkbox" /> Auto reroute when off route</label>
+          <label class="check-row"><input id="keepScreenAwake" type="checkbox" /> Try to keep screen awake during navigation</label>
+          <label>Off-route warning distance</label>
+          <select id="offRouteDistance">
+            <option value="60">60 m</option>
+            <option value="90">90 m</option>
+            <option value="140">140 m</option>
+            <option value="200">200 m</option>
           </select>
-          <label>Data source warning level</label>
-          <select id="warningLevel">
-            <option value="strict">Strict: unknown = warning</option>
-            <option value="balanced">Balanced</option>
+          <label>Voice prompts</label>
+          <select id="voiceMode">
+            <option value="important">Important only</option>
+            <option value="all">All directions</option>
+            <option value="off">Off</option>
           </select>
-          <label class="check-row"><input id="autoRecheck" type="checkbox" /> Auto recheck safety when route/profile changes</label>
           <button id="saveSettingsBtn" class="primary">Save settings</button>
         </div>
         <div class="panel">
-          <h2>About</h2>
-          <p>APS Truck GPS is a personal route-assistance PWA. It is not an NHVR-approved route authority and not a replacement for bridge signs, permits, state road maps, or professional truck routing data.</p>
+          <h2>About this build</h2>
+          <p>APS Truck GPS Navigation is a personal route-assistance PWA. It now includes live following, turn-by-turn instructions, off-route detection, voice prompts, safety checks, saved routes, and external navigation handoff.</p>
           <p id="buildInfo" class="hint"></p>
         </div>
       </section>
