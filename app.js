@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const BUILD = 'aps-truck-gps-live-navigation-v2.0.0';
+  const BUILD = 'aps-truck-gps-live-navigation-v2.1.0-update-button';
   const STORE_KEY = 'apsTruckGpsState.v2';
   const OLD_STORE_KEY = 'apsTruckGpsState.v1';
   const AU_CENTER = [-25.2744, 133.7751];
@@ -47,7 +47,8 @@
     startInput: $('startInput'), destInput: $('destInput'), distanceStat: $('distanceStat'), durationStat: $('durationStat'), routeTypeStat: $('routeTypeStat'), safetyStat: $('safetyStat'), directionsList: $('directionsList'),
     vehicleType: $('vehicleType'), truckHeight: $('truckHeight'), heightMargin: $('heightMargin'), truckWidth: $('truckWidth'), truckLength: $('truckLength'), truckWeight: $('truckWeight'), avoidUnknown: $('avoidUnknown'), blockLowBridge: $('blockLowBridge'),
     bridgeList: $('bridgeList'), offlinePacks: $('offlinePacks'), savedRoutesList: $('savedRoutesList'), placesList: $('placesList'), toast: $('toast'), buildInfo: $('buildInfo'),
-    autoStartGps: $('autoStartGps'), autoReroute: $('autoReroute'), keepScreenAwake: $('keepScreenAwake'), offRouteDistance: $('offRouteDistance'), voiceMode: $('voiceMode')
+    autoStartGps: $('autoStartGps'), autoReroute: $('autoReroute'), keepScreenAwake: $('keepScreenAwake'), offRouteDistance: $('offRouteDistance'), voiceMode: $('voiceMode'),
+    updateAppBtn: $('updateAppBtn'), hardReloadBtn: $('hardReloadBtn'), updateStatus: $('updateStatus')
   };
 
   boot();
@@ -60,7 +61,7 @@
     renderAll();
     updateNetworkPill();
     el.buildInfo.textContent = `Build: ${BUILD}`;
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+    if ('serviceWorker' in navigator) setupServiceWorkerUpdates();
     window.addEventListener('online', updateNetworkPill);
     window.addEventListener('offline', updateNetworkPill);
     window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstallPrompt = e; el.installBtn.hidden = false; });
@@ -116,6 +117,8 @@
     $('clearRouteBtn').addEventListener('click', clearRoute);
     $('saveProfileBtn').addEventListener('click', () => saveProfileFromForm(false));
     $('saveSettingsBtn').addEventListener('click', saveSettingsFromForm);
+    $('updateAppBtn').addEventListener('click', updateToLatestVersion);
+    $('hardReloadBtn').addEventListener('click', hardReloadApp);
     $('addBridgeBtn').addEventListener('click', addBridgeWarning);
     $('useGpsForBridgeBtn').addEventListener('click', fillBridgeFromGps);
     $('saveRouteBtn').addEventListener('click', saveCurrentRoute);
@@ -491,6 +494,70 @@
     state.settings = { autoStartGps: el.autoStartGps.checked, autoReroute: el.autoReroute.checked, keepScreenAwake: el.keepScreenAwake.checked, offRouteDistance: Number(el.offRouteDistance.value || 90), voiceMode: el.voiceMode.value };
     if (state.settings.voiceMode === 'off') voiceEnabled = false;
     saveState(false); showToast('Navigation settings saved');
+  }
+
+  async function setupServiceWorkerUpdates() {
+    try {
+      const registration = await navigator.serviceWorker.register('./sw.js');
+      registration.addEventListener('updatefound', () => {
+        const worker = registration.installing;
+        if (!worker) return;
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+            if (el.updateStatus) el.updateStatus.textContent = 'New version downloaded. Tap Update / refresh latest version to activate it.';
+            showToast('New app version ready to refresh');
+          }
+        });
+      });
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (sessionStorage.getItem('apsTruckGpsReloading') === '1') return;
+        sessionStorage.setItem('apsTruckGpsReloading', '1');
+        location.reload();
+      });
+    } catch (err) {
+      console.warn('Service worker registration failed', err);
+      if (el.updateStatus) el.updateStatus.textContent = 'Offline update helper is not available in this browser session.';
+    }
+  }
+
+  async function updateToLatestVersion() {
+    const oldText = el.updateAppBtn.textContent;
+    el.updateAppBtn.disabled = true;
+    el.hardReloadBtn.disabled = true;
+    el.updateAppBtn.textContent = 'Updating…';
+    if (el.updateStatus) el.updateStatus.textContent = 'Checking GitHub Pages and refreshing app cache. Your saved data will stay on this device.';
+    showToast('Updating app cache…');
+    try {
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          await registration.update().catch(() => {});
+          const waiting = registration.waiting || registration.installing;
+          if (waiting) waiting.postMessage({ type: 'APS_TRUCK_GPS_SKIP_WAITING' });
+        }
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter((key) => key.startsWith('aps-truck-gps')).map((key) => caches.delete(key)));
+      }
+      await fetch(`./index.html?update=${Date.now()}`, { cache: 'reload' }).catch(() => null);
+      if (el.updateStatus) el.updateStatus.textContent = 'Update check complete. Reloading latest version now…';
+      setTimeout(() => hardReloadApp(), 450);
+    } catch (err) {
+      console.warn('Update failed', err);
+      if (el.updateStatus) el.updateStatus.textContent = 'Update check failed. Check internet, then try again.';
+      showToast('Update failed. Check internet.');
+      el.updateAppBtn.disabled = false;
+      el.hardReloadBtn.disabled = false;
+      el.updateAppBtn.textContent = oldText;
+    }
+  }
+
+  function hardReloadApp() {
+    sessionStorage.removeItem('apsTruckGpsReloading');
+    const url = new URL(window.location.href);
+    url.searchParams.set('refresh', Date.now().toString());
+    window.location.replace(url.toString());
   }
 
   function fillBridgeFromGps() {

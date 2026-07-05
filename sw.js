@@ -1,4 +1,4 @@
-const CACHE = 'aps-truck-gps-live-navigation-v2';
+const CACHE = 'aps-truck-gps-live-navigation-v2.1-update-button';
 const APP_SHELL = [
   './',
   './index.html',
@@ -18,6 +18,13 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'APS_TRUCK_GPS_SKIP_WAITING') self.skipWaiting();
+  if (event.data && event.data.type === 'APS_TRUCK_GPS_CLEAR_CACHE') {
+    event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith('aps-truck-gps')).map((key) => caches.delete(key)))));
+  }
 });
 
 self.addEventListener('fetch', (event) => {

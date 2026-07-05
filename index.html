@@ -242,6 +242,17 @@
           </select>
           <button id="saveSettingsBtn" class="primary">Save settings</button>
         </div>
+
+        <div class="panel update-panel">
+          <h2>App update</h2>
+          <p class="hint">Use this after uploading a new ZIP to GitHub Pages. It clears the app cache, checks the service worker, and reloads the latest files without deleting your saved routes, truck profile, bridges, or places.</p>
+          <div class="grid2 actions-row">
+            <button id="updateAppBtn" class="primary">Update / refresh latest version</button>
+            <button id="hardReloadBtn" class="secondary">Hard reload only</button>
+          </div>
+          <p id="updateStatus" class="hint"></p>
+        </div>
+
         <div class="panel">
           <h2>About this build</h2>
           <p>APS Truck GPS Navigation is a personal route-assistance PWA. It now includes live following, turn-by-turn instructions, off-route detection, voice prompts, safety checks, saved routes, and external navigation handoff.</p>

@@ -35,3 +35,10 @@ Upload all files in this folder to the root of your GitHub repository:
 - assets folder
 
 Then enable GitHub Pages from Settings > Pages > Deploy from branch > main > root.
+
+
+Version 2.1 update:
+- Added Settings > App update panel.
+- Update / refresh latest version clears app cache and reloads newest GitHub Pages files.
+- Hard reload button added.
+- Saved truck profile, routes, places, bridge warnings, and backups stay in local storage.
